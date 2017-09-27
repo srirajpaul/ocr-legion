@@ -4989,7 +4989,7 @@ namespace LegionRuntime {
     //invoke the EDT that calls perform_dma
     //Event finish_event = get_finish_event();
     ocrHint_t curr_node_hint = Realm::OCRUtil::ocrHintArr[Realm::OCRUtil::ocrCurrentPolicyDomain()];
-    ocrGuid_t ocr_realm_perform_dma_edt, out_ocr_realm_perform_dma_edt, persistent_evt_guid;
+    //ocrGuid_t ocr_realm_perform_dma_edt, out_ocr_realm_perform_dma_edt, persistent_evt_guid;
     //cannot attach to the finish event since the triggering needs to be done by
     //ocr_realm_perform_dma_edt or RemoteWriteFenceAckMessage::handle_request whoever
     //finishes last. Triggering taken care by Operatons::mark_finished() api

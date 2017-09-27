@@ -2345,7 +2345,7 @@ ocrGuid_t mainEdt(u32 paramc, u64 * paramv, u32 depc, ocrEdtDep_t depv[])
 
     //spawn init EDT on each policy domain except 0
     ocrEdtTemplateCreate(&legion_ocr_main_edt_t, legion_ocr_main_func, EDT_PARAM_UNK, EDT_PARAM_UNK);
-    for(int i=1; i<numPD; i++) {
+    for(u64 i=1; i<numPD; i++) {
       ocrEdtCreate(&legion_ocr_main_edt, legion_ocr_main_edt_t, paramc_edt, paramv_edt, 1, NULL,
         EDT_PROP_OEVT_VALID, &(Realm::OCRUtil::ocrHintArr[i]), &legion_ocr_main_out);
       ocrAddDependence(barrier_db, legion_ocr_main_edt, 0, DB_MODE_RO);

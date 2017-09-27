@@ -90,7 +90,7 @@ namespace Realm {
       const size_t waiter_size = waiter->get_size();
 
       //invoke the EDT that calls event_triggered
-      ocrGuid_t event_waiter_edt;
+      //ocrGuid_t event_waiter_edt;
       ocrEdtCreate(NULL, OCREventImpl::event_waiter_edt_t,
         U64_COUNT(waiter_size), (u64*)waiter, 1, & needed.evt_guid,
         EDT_PROP_NONE, &(OCRUtil::ocrHintArr[dest]), NULL);
@@ -110,6 +110,7 @@ namespace Realm {
         params.EVENT_LATCH.counter = wait_for.size();
         ocrGuid_t latchguid;
         u8 ret = ocrEventCreateParams(&latchguid, OCR_EVENT_LATCH_T, false, &params);
+        assert(ret == 0);
         Event ret_evt = OCREventImpl::create_ocrevent();
         //attach the sticky finish event to the latch since legacy_block_progress needs persistent event
         ocrAddDependence(latchguid, ret_evt.evt_guid, 0, DB_MODE_RO);
@@ -162,6 +163,7 @@ namespace Realm {
       params.EVENT_LATCH.counter = count;
       ocrGuid_t latchguid;
       u8 ret = ocrEventCreateParams(&latchguid, OCR_EVENT_LATCH_T, false, &params);
+      assert(ret == 0);
       Event ret_evt = OCREventImpl::create_ocrevent();
       //attach the sticky finish event to the latch since legacy_block_progress needs persistent event
       ocrAddDependence(latchguid, ret_evt.evt_guid, 0, DB_MODE_RO);

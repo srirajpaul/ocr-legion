@@ -99,7 +99,7 @@ namespace Realm {
     memcpy(argv_ptr->args, args, arglen);
 
     //create and call the EDT
-    ocrGuid_t ocr_realm_conversion_edt, out_ocr_realm_conversion_edt, persistent_evt_guid;
+    ocrGuid_t ocr_realm_conversion_edt; //out_ocr_realm_conversion_edt, persistent_evt_guid;
     ocrEdtCreate(&ocr_realm_conversion_edt, OCRProcessor::ocr_realm_conversion_edt_t,
       argc, argv, 1, &start_event.evt_guid, EDT_PROP_OEVT_VALID,
       &(OCRUtil::ocrHintArr[dest]), &finish_event.evt_guid);

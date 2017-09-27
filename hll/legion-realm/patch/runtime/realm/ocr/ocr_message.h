@@ -64,7 +64,7 @@ class MessageHandlerShort {
       argv_ptr->args = args;
 
       //create the EDT  on the dest PD
-      ocrGuid_t ocr_realm_handle_request_edt;
+      //ocrGuid_t ocr_realm_handle_request_edt;
       ocrEdtCreate(NULL, ocr_realm_handle_request_edt_t, argc, argv,
         0, NULL, EDT_PROP_NONE, &(Realm::OCRUtil::ocrHintArr[dest]), NULL);
     }
@@ -117,7 +117,7 @@ class MessageHandlerMedium {
       memcpy(argv_ptr->data, data, datalen);
 
       //create the EDT on the dest PD
-      ocrGuid_t ocr_realm_handle_request_edt;
+      //ocrGuid_t ocr_realm_handle_request_edt;
       ocrEdtCreate(NULL, ocr_realm_handle_request_edt_t, argc, argv,
         0, NULL, EDT_PROP_NONE, &(Realm::OCRUtil::ocrHintArr[dest]), NULL);
     }
