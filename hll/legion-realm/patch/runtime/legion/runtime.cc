@@ -18470,7 +18470,7 @@ namespace Legion {
         }
       }
 #if USE_OCR_LAYER
-      Realm::OCRUtil::ocrBarrier();
+      Realm::OCRUtil::ocrBarrier(1);
 #endif // USE_OCR_LAYER
 
       // See if we are supposed to start the top-level task

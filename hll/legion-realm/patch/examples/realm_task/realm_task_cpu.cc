@@ -172,11 +172,7 @@ void top_level_task(const void *args, size_t arglen,
   Memory framebuffer_mem = Memory::NO_MEMORY;;
   find_memories(first_cpu, first_gpu, system_mem, framebuffer_mem);
 
-#ifdef USE_GASNET
   int n = gasnet_nodes();
-#else
-  int n = 1;
-#endif
 
   std::set<Event> ret_events;
   for(int i=0;i<n*2;i++)

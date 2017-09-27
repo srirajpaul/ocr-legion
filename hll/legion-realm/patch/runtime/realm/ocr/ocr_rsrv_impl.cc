@@ -33,7 +33,7 @@ namespace Realm {
     extern Logger log_reservation; // in reservation_impl.cc
 
     //const ID OCRReservationImpl::ocr_rsrv_impl = ID(OCRReservationImpl::ID_TYPE, gasnet_mynode(), 0);
-    const ID OCRReservationImpl::ocr_rsrv_impl = ID::make_reservation(gasnet_mynode(), 0);
+    const ID OCRReservationImpl::ocr_rsrv_impl = ID::make_reservation(0, 0);
 
     /*static*/ Reservation OCRReservationImpl::create_reservation(size_t _data_size /*= 0*/)
     {

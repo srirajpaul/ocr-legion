@@ -1,4 +1,5 @@
 /* Copyright 2017 Stanford University, NVIDIA Corporation
+ * Portions Copyright 2017 Rice University, Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -670,6 +671,209 @@ class ActiveMessageMediumNoReply {
 /*     return 1; */
 /*   } */
 /* }; */
+
+#elif defined USE_OCR_MPI || defined USE_OCR_GASNET // ifdef USE_GASNET
+
+#include "ocr/ocr_util.h"
+#include <pthread.h>
+
+#define CHECK_GASNET(cmd) (assert(false))
+
+typedef unsigned gasnet_node_t;
+#define gasnet_mynode() ((gasnet_node_t) Realm::OCRUtil::ocrCurrentPolicyDomain())
+#define gasnet_nodes()  ((gasnet_node_t) Realm::OCRUtil::ocrNbPolicyDomains())
+
+// gasnet_hsl_t in object form for templating goodness
+class GASNetHSL {
+public:
+  GASNetHSL(void) { pthread_mutex_init(&mutex, 0); }
+  ~GASNetHSL(void) { pthread_mutex_destroy(&mutex); }
+
+private:
+  // Should never be copied
+  GASNetHSL(const GASNetHSL &rhs) { assert(false); }
+  GASNetHSL& operator=(const GASNetHSL &rhs) { assert(false); return *this; }
+
+public:
+  void lock(void) { pthread_mutex_lock(&mutex); }
+  void unlock(void) { pthread_mutex_unlock(&mutex); }
+
+protected:
+  pthread_mutex_t mutex;
+};
+
+class GASNetCondVar {
+public:
+  GASNetCondVar(GASNetHSL &_mutex) 
+    : mutex(_mutex)
+  {
+    //assert(false);
+  }
+
+  ~GASNetCondVar(void)
+  {
+    //assert(false);
+  }
+
+  // these require that you hold the lock when you call
+  void signal(void)
+  {
+    assert(false);
+  }
+
+  void broadcast(void)
+  {
+    assert(false);
+  }
+
+  void wait(void)
+  {
+    assert(false);
+  }
+
+  GASNetHSL &mutex;
+};
+
+// barriers
+#define GASNET_BARRIERFLAG_ANONYMOUS 0
+inline void gasnet_barrier_notify(int, int) { assert(false); }
+inline void gasnet_barrier_wait(int, int) { assert(false); }
+
+// threadkeys
+class ThreadKey {
+public:
+  ThreadKey(void) { assert(false); }
+  ~ThreadKey(void) { assert(false); }
+  void *get(void) { assert(false); return NULL; }
+  void set(void *newval) { assert(false); }
+};
+
+#define GASNETT_THREADKEY_DECLARE(keyname) extern ThreadKey& get_key_##keyname(void)
+#define GASNETT_THREADKEY_DEFINE(keyname) \
+  ThreadKey& get_key_##keyname(void) { \
+    static ThreadKey key;         \
+    return key;                   \
+  }
+
+//#define gasnett_threadkey_set(keyname, value)  get_key_##keyname().set(value)
+//#define gasnett_threadkey_get(keyname) get_key_##keyname().get()
+
+// active message placeholders
+
+typedef int gasnet_handlerentry_t;
+typedef int gasnet_handle_t;
+typedef struct {
+  void *addr;
+  size_t size;
+} gasnet_seginfo_t;
+
+inline void gasnet_getSegmentInfo(gasnet_seginfo_t *, gasnet_node_t) { assert(0 && "No GASNet support"); }
+inline void gasnet_get(void *, int, void *, size_t) { assert(0 && "No GASNet support"); }
+inline void gasnet_get_nbi(void *, int, void *, size_t) { assert(0 && "No GASNet support"); }
+inline void gasnet_put(int, void *, void *, size_t) { assert(0 && "No GASNet support"); }
+inline void gasnet_put_nbi(int, void *, void *, size_t) { assert(0 && "No GASNet support"); }
+inline void gasnet_wait_syncnbi_gets(void) { assert(0 && "No GASNet support"); }
+inline void gasnet_wait_syncnb(gasnet_handle_t) { assert(0 && "No GASNet support"); }
+inline void gasnet_begin_nbi_accessregion(void) { assert(0 && "No GASNet support"); }
+inline gasnet_handle_t gasnet_end_nbi_accessregion(void) {  assert(0 && "No GASNet support"); return 0; }
+
+class BaseMedium { public: void *srcptr; };
+class BaseReply {};
+
+class ActiveMessagesNotImplemented {
+public:
+  static int add_handler_entries(gasnet_handlerentry_t *entries, const char *description)
+  {
+    // no error here - want to allow startup code to run ok
+    assert(0 && "compiled without USE_GASNET - active messages not available!");
+    return 0;
+  }
+};
+
+template <int MSGID, class MSGTYPE, void (*FNPTR)(MSGTYPE)>
+  class ActiveMessageShortNoReply : public ActiveMessagesNotImplemented {
+public:
+  static void request(gasnet_node_t dest, MSGTYPE args)
+  {
+    assert(0 && "compiled without USE_GASNET - active messages not available!");
+  }
+};
+
+template <int MSGID, class MSGTYPE, void (*FNPTR)(MSGTYPE, const void *, size_t)>
+class ActiveMessageMediumNoReply : public ActiveMessagesNotImplemented {
+public:
+  static void request(gasnet_node_t dest, /*const*/ MSGTYPE &args, 
+                      const void *data, size_t datalen,
+                      int payload_mode, void *dstptr = 0)
+  {
+    assert(0 && "compiled without USE_GASNET - active messages not available!");
+  }
+
+  static void request(gasnet_node_t dest, /*const*/ MSGTYPE &args, 
+                      const void *data, size_t line_len,
+		      off_t line_stride, size_t line_count,
+		      int payload_mode, void *dstptr = 0)
+  {
+    assert(0 && "compiled without USE_GASNET - active messages not available!");
+  }
+
+  static void request(gasnet_node_t dest, /*const*/ MSGTYPE &args, 
+                      const SpanList& spans, size_t datalen,
+		      int payload_mode, void *dstptr = 0)
+  {
+    assert(0 && "compiled without USE_GASNET - active messages not available!");
+  }
+};
+
+template <class T> struct HandlerReplyFuture {
+  pthread_mutex_t mutex;
+  pthread_cond_t condvar;
+  bool valid;
+  T value;
+
+  HandlerReplyFuture(void) {
+    pthread_mutex_init(&mutex, 0);
+    pthread_cond_init(&condvar, 0);
+    valid = false;
+  }
+
+  void set(T newval)
+  {
+    pthread_mutex_lock(&mutex);
+    valid = true;
+    value = newval;
+    pthread_cond_broadcast(&condvar);
+    pthread_mutex_unlock(&mutex);
+  }
+
+  bool is_set(void) const { return valid; }
+
+  void wait(void)
+  {
+    if(valid) return; // early out
+    pthread_mutex_lock(&mutex);
+    while(!valid) pthread_cond_wait(&condvar, &mutex);
+    pthread_mutex_unlock(&mutex);
+  }
+
+  T get(void) const { return value; }
+};
+
+inline void init_endpoints(gasnet_handlerentry_t *handlers, int hcount,
+			   int gasnet_mem_size_in_mb,
+			   int registered_mem_size_in_mb,
+			   Realm::CoreReservationSet& crs,
+                           int argc, const char *argv[])
+{
+  assert(false);
+}
+
+inline void start_polling_threads(int) { assert(false);}
+inline void start_handler_threads(int, Realm::CoreReservationSet&, size_t) { assert(false);}
+inline void stop_activemsg_threads(void) { assert(false);}
+    
+inline void do_some_polling(void) { assert(false);}
+inline size_t get_lmb_size(int target_node) { return 1<<20; }
 
 #else // ifdef USE_GASNET
 

@@ -19,7 +19,8 @@
 #include <cassert>
 #include <cstdlib>
 #include "legion.h"
-#if USE_OCR_LAYER && USE_GASNET
+
+#ifdef USE_OCR_GASNET
 #define ADD_OFFSET 2
 #else
 #define ADD_OFFSET 0

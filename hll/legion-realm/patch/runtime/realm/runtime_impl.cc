@@ -411,7 +411,7 @@ namespace Realm {
     RuntimeImpl::~RuntimeImpl(void)
     {
 #if USE_OCR_LAYER
-      if(OCRUtil::ocrCurrentPolicyDomain == 0)
+      if(OCRUtil::ocrCurrentPolicyDomain() == 0)
         ocrEventDestroy(ocr_shutdown_guid);
 #endif // USE_OCR_LAYER
       delete machine;
@@ -732,7 +732,7 @@ namespace Realm {
         adata[apos++] = NODE_ANNOUNCE_DONE;
         assert(apos < ADATA_SIZE);
 
-        OCRUtil::ocrBarrier();
+        OCRUtil::ocrBarrier(0);
         // now announce ourselves to everyone else
         for(unsigned i = 0; i < OCRUtil::ocrNbPolicyDomains(); i++)
           if(i != OCRUtil::ocrCurrentPolicyDomain())
@@ -1470,7 +1470,7 @@ namespace Realm {
       //Legion runtime currently does not call collective_spawn
       assert(false);
 #endif // REALM_ONLY
-      OCRUtil::ocrBarrier();
+      OCRUtil::ocrBarrier(1);
       //A better option is that the rank containing target_proc will spawn instead of rank 0
       //But shutdown() performs actions only on node 0 and nop everywhere and therefore i
       //we need to perform the spwan from node 0
@@ -2274,7 +2274,7 @@ int __attribute__ ((weak)) legion_ocr_main(int argc, char* argv[])
 {
     printf("error: no legion_ocr_main defined.\n");
     ocrShutdown();
-    ASSERT(false);
+    assert(false);
     return 0;
 }
 
@@ -2283,14 +2283,13 @@ extern "C"{
 #endif
 
 ocrGuid_t legion_ocr_main_func(u32 paramc, u64 * paramv, u32 depc, ocrEdtDep_t depv[]) {
-  //PRINTF("legion_ocr_main_func %d\n", Realm::OCRUtil::ocrCurrentPolicyDomain());
+  assert(depc == 1);
+  Realm::OCRUtil::static_init((ocrGuid_t *) depv[0].ptr);
 
-  Realm::OCRUtil::static_init();
-
-  int argc = getArgc(paramv), i;
+  int argc = ocrGetArgc(paramv), i;
   char *argv[argc];
   for(i=0;i<argc;i++)
-    argv[i] = getArgv(paramv, i);
+    argv[i] = ocrGetArgv(paramv, i);
 
   int ret = legion_ocr_main(argc, argv);
   assert(ret == 0);
@@ -2303,22 +2302,21 @@ ocrGuid_t mainEdt(u32 paramc, u64 * paramv, u32 depc, ocrEdtDep_t depv[])
   int pd = Realm::OCRUtil::ocrCurrentPolicyDomain();
   assert(pd == 0);
 
-  Realm::OCRUtil::static_init();
   u64 numPD = Realm::OCRUtil::ocrNbPolicyDomains();
 
   //extract argc and argv
-  int argc = getArgc(depv[0].ptr), i;
+  int argc = ocrGetArgc(depv[0].ptr), i;
   char *argv[argc];
   for(i=0;i<argc;i++)
-    argv[i] = getArgv(depv[0].ptr, i);
+    argv[i] = ocrGetArgv(depv[0].ptr, i);
 
   if(numPD == 1) {
+    Realm::OCRUtil::static_init(NULL);
     legion_ocr_main(argc, argv);
   }
   else {
     assert(numPD > 1);
 
-    //TODO: pack all argc and argv, not just one
     u64 sz;
     ocrDbGetSize(depv[0].guid, &sz);
     u32 paramc_edt = U64_COUNT(sz);
@@ -2326,6 +2324,7 @@ ocrGuid_t mainEdt(u32 paramc, u64 * paramv, u32 depc, ocrEdtDep_t depv[])
     memcpy(paramv_edt, depv[0].ptr, sz);
 
     ocrGuid_t legion_ocr_main_edt, legion_ocr_main_edt_t, legion_ocr_main_out, legion_ocr_main_out_sticky;
+    ocrGuid_t barrier_db, *barrier_evt;
 
     //Create a latch event to use as return/output event of init EDTs and attach it to a sticky event
     //The latch events should trigger after init EDTs in all policy domains complete
@@ -2333,13 +2332,23 @@ ocrGuid_t mainEdt(u32 paramc, u64 * paramv, u32 depc, ocrEdtDep_t depv[])
     params.EVENT_LATCH.counter = numPD-1;
     ocrEventCreateParams(&legion_ocr_main_out, OCR_EVENT_LATCH_T, false, &params);
     ocrEventCreate(&legion_ocr_main_out_sticky, OCR_EVENT_STICKY_T, EVT_PROP_NONE);
-    ocrAddDependence(legion_ocr_main_out, legion_ocr_main_out_sticky, 0, DB_MODE_RO);
+    ocrAddDependence(legion_ocr_main_out, legion_ocr_main_out_sticky, 0, DB_MODE_RO); 
+
+    //create two latch events to perform two barriers and put them in a DB
+    ocrDbCreate(&barrier_db, (void **)( & barrier_evt), 2*sizeof(ocrGuid_t), DB_PROP_NONE, NULL_HINT, NO_ALLOC);
+    params.EVENT_LATCH.counter = numPD;
+    ocrEventCreateParams(&barrier_evt[0], OCR_EVENT_LATCH_T, false, &params);
+    ocrEventCreateParams(&barrier_evt[1], OCR_EVENT_LATCH_T, false, &params);
+    ocrDbRelease(barrier_db);
+
+    Realm::OCRUtil::static_init(barrier_evt);
 
     //spawn init EDT on each policy domain except 0
     ocrEdtTemplateCreate(&legion_ocr_main_edt_t, legion_ocr_main_func, EDT_PARAM_UNK, EDT_PARAM_UNK);
     for(int i=1; i<numPD; i++) {
-      ocrEdtCreate(&legion_ocr_main_edt, legion_ocr_main_edt_t, paramc_edt, paramv_edt, 0, NULL,
+      ocrEdtCreate(&legion_ocr_main_edt, legion_ocr_main_edt_t, paramc_edt, paramv_edt, 1, NULL,
         EDT_PROP_OEVT_VALID, &(Realm::OCRUtil::ocrHintArr[i]), &legion_ocr_main_out);
+      ocrAddDependence(barrier_db, legion_ocr_main_edt, 0, DB_MODE_RO);
     }
     ocrEdtTemplateDestroy(legion_ocr_main_edt_t);
 
@@ -2348,6 +2357,7 @@ ocrGuid_t mainEdt(u32 paramc, u64 * paramv, u32 depc, ocrEdtDep_t depv[])
 
     //wait for init EDT's to finish
     Realm::OCRUtil::ocrLegacyBlock(legion_ocr_main_out_sticky);
+    ocrDbDestroy(barrier_db);
     ocrEventDestroy(legion_ocr_main_out_sticky);
   }
 

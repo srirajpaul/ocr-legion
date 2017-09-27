@@ -307,13 +307,35 @@ ifeq ($(strip $(USE_OCR)), 1)
   ifndef APPS_LIBS_INSTALL
     $(error APPS_LIBS_INSTALL variable is not defined, aborting build)
   endif
-  INC_FLAGS    += -I${OCR_INSTALL}/include -I${APPS_LIBS_INSTALL}/include
+  INC_FLAGS     += -I${OCR_INSTALL}/include -I${APPS_LIBS_INSTALL}/include
   CC_FLAGS      += -DUSE_OCR_LAYER=1 -DENABLE_EXTENSION_LEGACY
   CC_FLAGS      += -DENABLE_EXTENSION_PARAMS_EVT -DENABLE_EXTENSION_AFFINITY
-  CC_FLAGS      += -DENABLE_EXTENSION_DB_INFO
+  CC_FLAGS      += -DENABLE_EXTENSION_DB_INFO -DENABLE_EXTENSION_RTITF
 # CC_FLAGS      += -DENABLE_EXTENSION_LEGACY_FIBERS
   LEGION_LD_FLAGS      += -L${OCR_INSTALL}/lib -locr_${OCR_TYPE}
   LEGION_LD_FLAGS      += -L${APPS_LIBS_INSTALL}/lib -locr-reservations
+
+  ifeq ($(strip ${OCR_TYPE}), x86-gasnet)
+    CC_FLAGS    += -DUSE_OCR_GASNET
+    INC_FLAGS   += -I$(GASNET)/include
+    ifneq ($(shell uname -s),Darwin)
+      LEGION_LD_FLAGS	+= -L$(GASNET)/lib -lrt -lm
+    else
+      LEGION_LD_FLAGS	+= -L$(GASNET)/lib -lm
+    endif
+    ifeq ($(strip $(CONDUIT)),udp)
+      INC_FLAGS        += -I$(GASNET)/include/udp-conduit
+      LEGION_LD_FLAGS  += -lgasnet-udp-par -lamudp
+    else
+      $(error Only UDP GASNet conduit supported by default. For others, add necessary compilation/runtime flags)
+    endif
+  endif
+
+  ifeq ($(strip ${OCR_TYPE}), x86-mpi)
+    CC_FLAGS    += -DUSE_OCR_MPI
+    CC		:= mpicc
+    CXX		:= mpicxx
+  endif
 endif
 
 SKIP_MACHINES= titan% daint% excalibur%

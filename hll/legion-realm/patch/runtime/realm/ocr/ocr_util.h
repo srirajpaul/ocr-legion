@@ -28,7 +28,7 @@ namespace Realm {
     public:
       static ocrHint_t * ocrHintArr;
 
-      static void static_init();
+      static void static_init(ocrGuid_t*);
 
       static void static_destroy();
 
@@ -36,7 +36,7 @@ namespace Realm {
 
       static u64 ocrCurrentPolicyDomain();
 
-      static void ocrBarrier();
+      static void ocrBarrier(int);
 
       static void ocrLegacyBlock(ocrGuid_t dep);
   };

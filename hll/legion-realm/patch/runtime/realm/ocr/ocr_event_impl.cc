@@ -36,7 +36,7 @@ namespace Realm {
     ocrGuid_t OCREventImpl::event_waiter_edt_t = NULL_GUID;
 
     //const ID OCREventImpl::ocr_event_impl = ID(OCREventImpl::ID_TYPE, gasnet_mynode(), 0);
-    const ID OCREventImpl::ocr_event_impl = ID::make_event(gasnet_mynode(), 0, 0);
+    const ID OCREventImpl::ocr_event_impl = ID::make_event(0, 0, 0);
 
     //EDT function that calls event_triggered
     //argv is the object whose event_triggered() needs to be invoked
