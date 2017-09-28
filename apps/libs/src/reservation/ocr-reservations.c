@@ -36,14 +36,33 @@ u8 ocrReservationCreate(ocrGuid_t *res, void *in_params)
  **/
 u8 ocrReservationAcquireRequest(ocrGuid_t res, ocrReservationMode_t mode, u32 depc, ocrGuid_t *depv, ocrGuid_t *outputEvent)
 {
-    ocrEventParams_t params;
-    params.EVENT_LATCH.counter = depc+1;
-    u8 ret = ocrEventCreateParams(outputEvent, OCR_EVENT_LATCH_T, false, &params);
-    int i;
-
-    ocrAddDependence(res, *outputEvent, OCR_EVENT_LATCH_DECR_SLOT, DB_MODE_RO);
-    for(i=0; i<depc; i++)
-        ocrAddDependence(depv[i], *outputEvent, OCR_EVENT_LATCH_DECR_SLOT, DB_MODE_RO);
+    u8 ret;
+    //if no dependency, then add the output event directly to channel event
+    if(depc == 0 || (depc == 1 && ocrGuidIsEq(NULL_GUID, depv[0]))) {
+      ret = ocrAddDependence(res, *outputEvent, 0, DB_MODE_RO);
+    }
+    //for one dependency, create a latch event, add dependency and channel event to its
+    //increment and decrement slots. attach the latch event to the output event
+    else if (depc == 1) {
+      ocrGuid_t latchEvent;
+      ret = ocrEventCreate(&latchEvent, OCR_EVENT_LATCH_T, false);
+      ret |= ocrAddDependence(latchEvent, *outputEvent, 0, DB_MODE_RO);
+      ret |= ocrAddDependence(res, latchEvent, OCR_EVENT_LATCH_INCR_SLOT, DB_MODE_RO);
+      ret |= ocrAddDependence(depv[0], latchEvent, OCR_EVENT_LATCH_DECR_SLOT, DB_MODE_RO);
+    }
+    //for more than one dependency, create a latch event, add channel event and dependencies
+    //to the latch event. attach the latch event to the output event
+    else {
+      ocrEventParams_t params;
+      params.EVENT_LATCH.counter = depc + 1;
+      ocrGuid_t latchEvent; 
+      ret = ocrEventCreateParams(&latchEvent, OCR_EVENT_LATCH_T, false, &params);
+      ret |= ocrAddDependence(latchEvent, *outputEvent, 0, DB_MODE_RO);
+      u32 i;
+      ret |= ocrAddDependence(res, latchEvent, OCR_EVENT_LATCH_DECR_SLOT, DB_MODE_RO);
+      for(i=0; i<depc; i++)
+          ret |= ocrAddDependence(depv[i], latchEvent, OCR_EVENT_LATCH_DECR_SLOT, DB_MODE_RO);
+    }
     return ret;
 }
 
@@ -54,15 +73,28 @@ u8 ocrReservationAcquireRequest(ocrGuid_t res, ocrReservationMode_t mode, u32 de
  **/
 u8 ocrReservationReleaseRequest(ocrGuid_t res, u32 depc, ocrGuid_t *depv)
 {
-    ocrEventParams_t params;
-    params.EVENT_LATCH.counter = depc;
-    ocrGuid_t latchguid;
-    u8 ret = ocrEventCreateParams(&latchguid, OCR_EVENT_LATCH_T, false, &params);
-    int i;
+    u8 ret;
+    //if no dependency, directly satify the channel event
+    if(depc == 0 || (depc == 1 && ocrGuidIsEq(NULL_GUID, depv[0]))) {
+      ret = ocrEventSatisfy(res, NULL_GUID);
+    }
+    //for one dependency, satisfy the channel event with that dependency
+    else if(depc == 1) {
+      ret = ocrAddDependence(depv[0], res, 0, DB_MODE_RO);
+    }
+    //for more than one dependency, attach the dependencies to a latch event
+    //and use the latch event to satisfy the channel event
+    else {
+      ocrEventParams_t params;
+      params.EVENT_LATCH.counter = depc;
+      ocrGuid_t latchEvent;
+      ret = ocrEventCreateParams(&latchEvent, OCR_EVENT_LATCH_T, false, &params);
+      u32 i;
 
-    ocrAddDependence(latchguid, res, 0, DB_MODE_RO);
-    for(i=0; i<depc; i++)
-        ocrAddDependence(depv[i], latchguid, OCR_EVENT_LATCH_DECR_SLOT, DB_MODE_RO);
+      ret != ocrAddDependence(latchEvent, res, 0, DB_MODE_RO);
+      for(i=0; i<depc; i++)
+          ret |= ocrAddDependence(depv[i], latchEvent, OCR_EVENT_LATCH_DECR_SLOT, DB_MODE_RO);
+    }
     return ret;
 }
 

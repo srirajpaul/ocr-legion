@@ -50,20 +50,7 @@ namespace Realm {
       //create a sticky event to return
       Event e = OCREventImpl::ocr_event_impl.convert<Event>();
       ocrEventCreate(&e.evt_guid, OCR_EVENT_STICKY_T, EVT_PROP_NONE);
-
-      //add one additional unsatisfied dependency event to prevent acquire
-      //until dependency is added to return sticky event
-      ocrGuid_t out_evt, dep_evt[2];
-      dep_evt[0] = wait_on.evt_guid;
-      ocrEventCreate(&dep_evt[1], OCR_EVENT_ONCE_T, EVT_PROP_NONE);
-
-      ocrReservationAcquireRequest(res, OCR_RES_EXCL_T, 2, dep_evt, &out_evt);
-
-      //add dependency to return sicky event
-      ocrAddDependence(out_evt, e.evt_guid, 0, DB_MODE_RO);
-      //enable acquire by satisfying the event
-      ocrEventSatisfy(dep_evt[1], NULL_GUID);
-
+      ocrReservationAcquireRequest(res, OCR_RES_EXCL_T, 1, &wait_on.evt_guid, &e.evt_guid);
       return e;
     }
 

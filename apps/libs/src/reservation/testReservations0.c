@@ -48,6 +48,7 @@ ocrGuid_t mainEdt(u32 paramc, u64* paramv, u32 depc, ocrEdtDep_t depv[]) {
     {
       ocrGuid_t outResEvt, depRes;
       ocrEventCreate(&depRes, OCR_EVENT_ONCE_T, EVT_PROP_NONE);
+      ocrEventCreate(&outResEvt, OCR_EVENT_ONCE_T, EVT_PROP_NONE);
       ocrReservationAcquireRequest(resGuid, OCR_RES_EXCL_T, 1, &depRes, &outResEvt);
       ocrGuid_t edtGuid, outEdtGuid;
       //outResEvt = NULL_GUID; //uncomment to remove effect of acquire
